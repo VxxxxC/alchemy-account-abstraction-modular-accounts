@@ -33,6 +33,12 @@ contract CounterPlugin is BasePlugin {
      * In this case, "count" is only used in an execution function, but nonetheless, it's worth noting
      * that a mapping from the account address is considered associated storage.
      */
+
+    /* * NOTE:
+     *   1. user operation ( bundler -> entry point -> smart contract account -> plugin )
+     *   2. runtime ( smart contract account -> plugin )
+     *   3. plugin directly
+     */
     mapping(address => uint256) public count;
 
     // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
