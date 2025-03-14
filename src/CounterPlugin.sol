@@ -121,6 +121,8 @@ contract CounterPlugin is BasePlugin {
             })
         });
 
+        manifest.canSpendNativeToken = true;
+
         return manifest;
     }
 

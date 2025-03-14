@@ -39,12 +39,12 @@ contract CounterTest is Test {
         // we'll use this plugin's validation for our increment function
         MultiOwnerPlugin multiOwnerPlugin = new MultiOwnerPlugin();
         MultiOwnerModularAccountFactory factory = new MultiOwnerModularAccountFactory(
-            address(this),
-            address(multiOwnerPlugin),
-            address(new UpgradeableModularAccount(entryPoint)),
-            keccak256(abi.encode(multiOwnerPlugin.pluginManifest())),
-            entryPoint
-        );
+                address(this),
+                address(multiOwnerPlugin),
+                address(new UpgradeableModularAccount(entryPoint)),
+                keccak256(abi.encode(multiOwnerPlugin.pluginManifest())),
+                entryPoint
+            );
 
         // the beneficiary of the fees at the entry point
         beneficiary = payable(makeAddr("beneficiary"));
@@ -54,19 +54,24 @@ contract CounterTest is Test {
         (owner1, owner1Key) = makeAddrAndKey("owner1");
         owners = new address[](1);
         owners[0] = owner1;
-        account1 = UpgradeableModularAccount(payable(factory.createAccount(0, owners)));
+        account1 = UpgradeableModularAccount(
+            payable(factory.createAccount(0, owners))
+        );
         vm.deal(address(account1), 100 ether);
 
         // create our counter plugin and grab the manifest hash so we can install it
         // note: plugins are singleton contracts, so we only need to deploy them once
         counterPlugin = new CounterPlugin();
-        bytes32 manifestHash = keccak256(abi.encode(counterPlugin.pluginManifest()));
+        bytes32 manifestHash = keccak256(
+            abi.encode(counterPlugin.pluginManifest())
+        );
 
         // we will have a single function dependency for our counter contract: the multi owner user op validation
         // we'll use this to ensure that only an owner can sign a user operation that can successfully increment
         FunctionReference[] memory dependencies = new FunctionReference[](1);
         dependencies[0] = FunctionReferenceLib.pack(
-            address(multiOwnerPlugin), uint8(IMultiOwnerPlugin.FunctionId.USER_OP_VALIDATION_OWNER)
+            address(multiOwnerPlugin),
+            uint8(IMultiOwnerPlugin.FunctionId.USER_OP_VALIDATION_OWNER)
         );
 
         // install this plugin on the account as the owner
@@ -95,17 +100,43 @@ contract CounterTest is Test {
             signature: ""
         });
 
+        UserOperation memory userOp2 = UserOperation({
+            sender: address(account1),
+            nonce: 1,
+            initCode: "",
+            callData: abi.encodeCall(CounterPlugin.increment, ()),
+            callGasLimit: CALL_GAS_LIMIT,
+            verificationGasLimit: VERIFICATION_GAS_LIMIT,
+            preVerificationGas: 0,
+            maxFeePerGas: 2,
+            maxPriorityFeePerGas: 1,
+            paymasterAndData: "",
+            signature: ""
+        });
+
         // sign this user operation with the owner, otherwise it will revert due to the multiowner validation
         bytes32 userOpHash = entryPoint.getUserOpHash(userOp);
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(owner1Key, userOpHash.toEthSignedMessageHash());
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(
+            owner1Key,
+            userOpHash.toEthSignedMessageHash()
+        );
         userOp.signature = abi.encodePacked(r, s, v);
 
+        // sign this user operation with the owner, otherwise it will revert due to the multiowner validation
+        bytes32 userOpHash2 = entryPoint.getUserOpHash(userOp2);
+        (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(
+            owner1Key,
+            userOpHash2.toEthSignedMessageHash()
+        );
+        userOp2.signature = abi.encodePacked(r2, s2, v2);
+
         // send our single user operation to increment our count
-        UserOperation[] memory userOps = new UserOperation[](1);
+        UserOperation[] memory userOps = new UserOperation[](2);
         userOps[0] = userOp;
+        userOps[1] = userOp2;
         entryPoint.handleOps(userOps, beneficiary);
 
         // check that we successfully incremented!
-        assertEq(counterPlugin.count(address(account1)), 1);
+        assertEq(counterPlugin.count(address(account1)), 2);
     }
 }
