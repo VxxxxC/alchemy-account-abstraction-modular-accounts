@@ -105,20 +105,6 @@ contract SubscriptionTest is Test {
             signature: ""
         });
 
-        UserOperation memory userOp2 = UserOperation({
-            sender: address(account1),
-            nonce: 1,
-            initCode: "",
-            callData: abi.encodeCall(subscriptionPlugin.increment, ()),
-            callGasLimit: CALL_GAS_LIMIT,
-            verificationGasLimit: VERIFICATION_GAS_LIMIT,
-            preVerificationGas: 0,
-            maxFeePerGas: 2,
-            maxPriorityFeePerGas: 1,
-            paymasterAndData: "",
-            signature: ""
-        });
-
         // sign this user operation with the owner, otherwise it will revert due to the multiowner validation
         bytes32 userOpHash = entryPoint.getUserOpHash(userOp);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(
@@ -127,21 +113,16 @@ contract SubscriptionTest is Test {
         );
         userOp.signature = abi.encodePacked(r, s, v);
 
-        // sign this user operation with the owner, otherwise it will revert due to the multiowner validation
-        bytes32 userOpHash2 = entryPoint.getUserOpHash(userOp2);
-        (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(
-            owner1Key,
-            userOpHash2.toEthSignedMessageHash()
-        );
-        userOp2.signature = abi.encodePacked(r2, s2, v2);
-
         // send our single user operation to increment our count
-        UserOperation[] memory userOps = new UserOperation[](2);
+        UserOperation[] memory userOps = new UserOperation[](1);
         userOps[0] = userOp;
-        userOps[1] = userOp2;
+        // userOps[1] = userOp2;
         entryPoint.handleOps(userOps, beneficiary);
 
-        // check that we successfully incremented!
-        assertEq(subscriptionPlugin.count(address(account1)), 2);
+        // check that we successfully subscribed!
+        (uint amount, uint lastPaid, bool enabled) = subscriptionPlugin
+            .subscriptions(service, address(account1));
+        assertEq(amount, 10);
+        assertEq(enabled, true);
     }
 }
