@@ -6,12 +6,12 @@ import {IPluginExecutor} from "@alchemy/modular-account/src/interfaces/IPluginEx
 import {ManifestFunction, ManifestAssociatedFunctionType, ManifestAssociatedFunction, PluginManifest, PluginMetadata} from "@alchemy/modular-account/src/interfaces/IPlugin.sol";
 import {IMultiOwnerPlugin} from "@alchemy/modular-account/src/plugins/owner/IMultiOwnerPlugin.sol";
 
-/// @title Counter Plugin
+/// @title Subscription Plugin
 /// @author Alchemy
-/// @notice This plugin lets increment a count!
-contract CounterPlugin is BasePlugin {
+/// @notice This plugin lets Subscriptions!
+contract SubscriptionPlugin is BasePlugin {
     // metadata used by the pluginMetadata() method down below
-    string public constant NAME = "Counter Plugin";
+    string public constant NAME = "Subscription Plugin";
     string public constant VERSION = "1.0.0";
     string public constant AUTHOR = "Alchemy";
 

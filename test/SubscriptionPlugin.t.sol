@@ -13,14 +13,14 @@ import {IMultiOwnerPlugin} from "@alchemy/modular-account/src/plugins/owner/IMul
 import {FunctionReference} from "@alchemy/modular-account/src/interfaces/IPluginManager.sol";
 import {FunctionReferenceLib} from "@alchemy/modular-account/src/helpers/FunctionReferenceLib.sol";
 
-import {CounterPlugin} from "../src/CounterPlugin.sol";
+import {SubscriptionPlugin} from "../src/SubscriptionPlugin.sol";
 
-contract CounterTest is Test {
+contract SubscriptionTest is Test {
     using ECDSA for bytes32;
 
     IEntryPoint entryPoint;
     UpgradeableModularAccount account1;
-    CounterPlugin counterPlugin;
+    SubscriptionPlugin subscriptionPlugin;
     address owner1;
     uint256 owner1Key;
     address[] public owners;
@@ -61,9 +61,9 @@ contract CounterTest is Test {
 
         // create our counter plugin and grab the manifest hash so we can install it
         // note: plugins are singleton contracts, so we only need to deploy them once
-        counterPlugin = new CounterPlugin();
+        subscriptionPlugin = new SubscriptionPlugin();
         bytes32 manifestHash = keccak256(
-            abi.encode(counterPlugin.pluginManifest())
+            abi.encode(subscriptionPlugin.pluginManifest())
         );
 
         // we will have a single function dependency for our counter contract: the multi owner user op validation
@@ -77,7 +77,7 @@ contract CounterTest is Test {
         // install this plugin on the account as the owner
         vm.prank(owner1);
         account1.installPlugin({
-            plugin: address(counterPlugin),
+            plugin: address(subscriptionPlugin),
             manifestHash: manifestHash,
             pluginInstallData: "0x",
             dependencies: dependencies
@@ -85,12 +85,17 @@ contract CounterTest is Test {
     }
 
     function test_Increment() public {
+        address service = makeAddr("service");
+
         // create a user operation which has the calldata to specify we'd like to increment
         UserOperation memory userOp = UserOperation({
             sender: address(account1),
             nonce: 0,
             initCode: "",
-            callData: abi.encodeCall(CounterPlugin.increment, ()),
+            callData: abi.encodeCall(
+                subscriptionPlugin.subscribe,
+                (service, 10)
+            ),
             callGasLimit: CALL_GAS_LIMIT,
             verificationGasLimit: VERIFICATION_GAS_LIMIT,
             preVerificationGas: 0,
@@ -104,7 +109,7 @@ contract CounterTest is Test {
             sender: address(account1),
             nonce: 1,
             initCode: "",
-            callData: abi.encodeCall(CounterPlugin.increment, ()),
+            callData: abi.encodeCall(subscriptionPlugin.increment, ()),
             callGasLimit: CALL_GAS_LIMIT,
             verificationGasLimit: VERIFICATION_GAS_LIMIT,
             preVerificationGas: 0,
@@ -137,6 +142,6 @@ contract CounterTest is Test {
         entryPoint.handleOps(userOps, beneficiary);
 
         // check that we successfully incremented!
-        assertEq(counterPlugin.count(address(account1)), 2);
+        assertEq(subscriptionPlugin.count(address(account1)), 2);
     }
 }
