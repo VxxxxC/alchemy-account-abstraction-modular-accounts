@@ -65,7 +65,7 @@ contract SubscriptionPlugin is BasePlugin {
     function collect(address subscriber, uint amount) external {
         SubscriptionData storage subscription = subscriptions[msg.sender][subscriber];
         require(subscription.amount == amount);
-        require(block.timestamp - subscription.lastPaid >= 4 weeks);
+        require(block.timestamp - subscription.lastPaid >= 4 weeks, "less than 4 weeks !!");
         require(subscription.enabled);
         subscription.lastPaid = block.timestamp;
 
