@@ -39,18 +39,26 @@ contract CounterPlugin is BasePlugin {
      *   2. runtime ( smart contract account -> plugin )
      *   3. plugin directly
      */
-    mapping(address => uint256) public count;
+    mapping(address => mapping(address => SubscriptionData))
+        public subscriptions;
+
+    struct SubscriptionData {
+        uint amount; // <-- native currency
+        uint lastPaid;
+        bool enabled;
+    }
 
     // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
     // ┃    Execution functions    ┃
     // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 
-    // this is the one thing we are attempting to do with our plugin!
-    // we define increment to modify our associated storage, count
-    // then in the manifest we define it as an execution function,
-    // and we specify the validation function for the user op targeting this function
-    function increment() external {
-        count[msg.sender]++;
+    //* NOTE: This is call through a user operation
+    function subscribe(address service, uint amount) external {
+        subscriptions[service][msg.sender] = SubscriptionData({
+            amount: amount,
+            lastPaid: 0,
+            enabled: true
+        });
     }
 
     // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
@@ -82,37 +90,38 @@ contract CounterPlugin is BasePlugin {
         // we only have one execution function that can be called, which is the increment function
         // here we define that increment function on the manifest as something that can be called during execution
         manifest.executionFunctions = new bytes4[](1);
-        manifest.executionFunctions[0] = this.increment.selector;
+        manifest.executionFunctions[0] = this.subscribe.selector;
 
         // you can think of ManifestFunction as a reference to a function somewhere,
         // we want to say "use this function" for some purpose - in this case,
         // we'll be using the user op validation function from the multi owner dependency
         // and this is specified by the depdendency index
-        ManifestFunction memory ownerUserOpValidationFunction = ManifestFunction({
-            functionType: ManifestAssociatedFunctionType.DEPENDENCY,
-            functionId: 0, // unused since it's a dependency
-            dependencyIndex: _MANIFEST_DEPENDENCY_INDEX_OWNER_USER_OP_VALIDATION
-        });
+        ManifestFunction
+            memory ownerUserOpValidationFunction = ManifestFunction({
+                functionType: ManifestAssociatedFunctionType.DEPENDENCY,
+                functionId: 0, // unused since it's a dependency
+                dependencyIndex: _MANIFEST_DEPENDENCY_INDEX_OWNER_USER_OP_VALIDATION
+            });
 
-        // here we will link together the increment function with the multi owner user op validation
-        // this basically says "use this user op validation function and make sure everythings okay before calling increment"
-        // this will ensure that only an owner of the account can call increment
+        // here we will link together the subscribe function with the multi owner user op validation
+        // this basically says "use this user op validation function and make sure everythings okay before calling subscribe"
+        // this will ensure that only an owner of the account can call subscribe
         manifest.userOpValidationFunctions = new ManifestAssociatedFunction[](
             1
         );
         manifest.userOpValidationFunctions[0] = ManifestAssociatedFunction({
-            executionSelector: this.increment.selector,
+            executionSelector: this.subscribe.selector,
             associatedFunction: ownerUserOpValidationFunction
         });
 
-        // finally here we will always deny runtime calls to the increment function as we will only call it through user ops
+        // finally here we will always deny runtime calls to the subscribe function as we will only call it through user ops
         // this avoids a potential issue where a future plugin may define
         // a runtime validation function for it and unauthorized calls may occur due to that
         manifest.preRuntimeValidationHooks = new ManifestAssociatedFunction[](
             1
         );
         manifest.preRuntimeValidationHooks[0] = ManifestAssociatedFunction({
-            executionSelector: this.increment.selector,
+            executionSelector: this.subscribe.selector,
             associatedFunction: ManifestFunction({
                 functionType: ManifestAssociatedFunctionType
                     .PRE_HOOK_ALWAYS_DENY,
@@ -121,7 +130,9 @@ contract CounterPlugin is BasePlugin {
             })
         });
 
+        //* NOTE: pluging -> smart account -> external address
         manifest.canSpendNativeToken = true;
+        manifest.permitAnyExternalAddress = true;
 
         return manifest;
     }
